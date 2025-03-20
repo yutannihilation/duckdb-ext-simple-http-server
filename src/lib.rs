@@ -58,12 +58,28 @@ impl VTab for HelloVTab {
     type BindData = HelloBindData;
 
     fn bind(bind: &BindInfo) -> Result<Self::BindData, Box<dyn std::error::Error>> {
-        bind.add_result_column("column0", LogicalTypeHandle::from(LogicalTypeId::Varchar));
+        bind.add_result_column("result", LogicalTypeHandle::from(LogicalTypeId::Varchar));
         Ok(HelloBindData {})
     }
 
     fn init(_: &InitInfo) -> Result<Self::InitData, Box<dyn std::error::Error>> {
-        let get = warp::get().map(|| warp::reply::html("foo"));
+        let get = warp::get().map(|| {
+            warp::reply::html(
+                r#"
+<html>
+  <head>
+    <title>あああ</title>
+  </head>
+  <body>
+    <div>
+    <h1>こんにちは！</h1>
+    <img src="https://yutannihilation.github.io/images/icon.jpg" style="width:100.0%">
+    </div>
+  </body>
+</html>
+"#,
+            )
+        });
 
         RUNTIME.spawn(async move { warp::serve(get).run(([127, 0, 0, 1], 3030)).await });
 
