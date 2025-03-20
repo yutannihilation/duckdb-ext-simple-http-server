@@ -139,7 +139,7 @@ pub unsafe fn extension_entrypoint(con: Connection) -> Result<(), Box<dyn Error>
         .expect("Failed to register hello table function");
 
     // TODO: handle error
-    let _ = CONN.set(Mutex::new(con));
+    let _ = CONN.set(Mutex::new(con.try_clone()?));
 
     Ok(())
 }
