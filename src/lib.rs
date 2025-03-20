@@ -12,13 +12,39 @@ use libduckdb_sys as ffi;
 use std::{
     error::Error,
     ffi::CString,
-    sync::atomic::{AtomicBool, Ordering},
+    process::Command,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        LazyLock,
+    },
 };
 
-#[repr(C)]
-struct HelloBindData {
-    name: String,
+use tokio::runtime::Runtime;
+use warp::Filter;
+
+static RUNTIME: LazyLock<Runtime> = LazyLock::new(|| Runtime::new().unwrap());
+
+// cf. https://github.com/duckdb/duckdb-ui/blob/25ff9b6fa0f37853b92e9f5a7ea517bf78656f3f/src/ui_extension.cpp#L14-L20
+#[cfg(target_os = "windows")]
+fn open_browser(url: &str) {
+    // It seems new("start").arg(url) doesn't work...
+
+    Command::new("cmd")
+        .args(["/c", "start", url])
+        .spawn()
+        .unwrap();
 }
+#[cfg(target_os = "macos")]
+fn open_browser(url: &str) {
+    Command::new("open").arg(url).spawn().unwrap();
+}
+#[cfg(target_os = "linux")]
+fn open_browser(url: &str) {
+    Command::new("xdg-open").arg(url).spawn().unwrap();
+}
+
+#[repr(C)]
+struct HelloBindData {}
 
 #[repr(C)]
 struct HelloInitData {
@@ -33,11 +59,16 @@ impl VTab for HelloVTab {
 
     fn bind(bind: &BindInfo) -> Result<Self::BindData, Box<dyn std::error::Error>> {
         bind.add_result_column("column0", LogicalTypeHandle::from(LogicalTypeId::Varchar));
-        let name = bind.get_parameter(0).to_string();
-        Ok(HelloBindData { name })
+        Ok(HelloBindData {})
     }
 
     fn init(_: &InitInfo) -> Result<Self::InitData, Box<dyn std::error::Error>> {
+        let get = warp::get().map(|| warp::reply::html("foo"));
+
+        RUNTIME.spawn(async move { warp::serve(get).run(([127, 0, 0, 1], 3030)).await });
+
+        open_browser("http://127.0.0.1:3030");
+
         Ok(HelloInitData {
             done: AtomicBool::new(false),
         })
@@ -53,7 +84,8 @@ impl VTab for HelloVTab {
             output.set_len(0);
         } else {
             let vector = output.flat_vector(0);
-            let result = CString::new(format!("Rusty Quack {} 🐥", bind_data.name))?;
+            let url = "http://127.0.0.1:3030"; // TODO
+            let result = CString::new(format!("URL {}", url))?;
             vector.insert(0, result);
             output.set_len(1);
         }
@@ -61,7 +93,7 @@ impl VTab for HelloVTab {
     }
 
     fn parameters() -> Option<Vec<LogicalTypeHandle>> {
-        Some(vec![LogicalTypeHandle::from(LogicalTypeId::Varchar)])
+        Some(vec![])
     }
 }
 
