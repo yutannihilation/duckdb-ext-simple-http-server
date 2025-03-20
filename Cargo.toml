@@ -23,5 +23,6 @@ crate-type = ["staticlib"]
 duckdb = { version = "1.2.1", features = ["vtab-loadable"] }
 duckdb-loadable-macros = "0.1.5"
 libduckdb-sys = { version = "1.2.1", features = ["loadable-extension"] }
-tokio = { version = "1.44.1", features = ["macros", "rt"] }
-warp = { version = "0.3.7", default-features = false }
+
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+warp = { version = "0.3", default-features = false }
