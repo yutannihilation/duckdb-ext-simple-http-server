@@ -15,7 +15,7 @@ use std::{
     process::Command,
     sync::{
         atomic::{AtomicBool, Ordering},
-        LazyLock,
+        LazyLock, Mutex, OnceLock,
     },
 };
 
@@ -64,7 +64,22 @@ impl VTab for HelloVTab {
 
     fn init(_: &InitInfo) -> Result<Self::InitData, Box<dyn std::error::Error>> {
         let get = warp::get().map(|| {
-            warp::reply::html(
+            // let conn = Connection::open_in_memory().unwrap();
+            let mut tables = vec![];
+            CONN.get()
+                .unwrap()
+                .lock()
+                .unwrap()
+                .pragma_query(None, "show_tables", |row| {
+                    let t: String = row.get(0)?;
+                    tables.push(format!("<li>{t}</li>"));
+                    Ok(())
+                })
+                .unwrap();
+
+            let tables = tables.join("\n");
+
+            warp::reply::html(format!(
                 r#"
 <html>
   <head>
@@ -72,13 +87,14 @@ impl VTab for HelloVTab {
   </head>
   <body>
     <div>
-    <h1>こんにちは！</h1>
-    <img src="https://yutannihilation.github.io/images/icon.jpg" style="width:100.0%">
+<ul>
+{tables}
+</ul>
     </div>
   </body>
 </html>
-"#,
-            )
+"#
+            ))
         });
 
         RUNTIME.spawn(async move { warp::serve(get).run(([127, 0, 0, 1], 3030)).await });
@@ -115,9 +131,15 @@ impl VTab for HelloVTab {
 
 const EXTENSION_NAME: &str = env!("CARGO_PKG_NAME");
 
+static CONN: OnceLock<Mutex<Connection>> = OnceLock::new();
+
 #[duckdb_entrypoint_c_api()]
 pub unsafe fn extension_entrypoint(con: Connection) -> Result<(), Box<dyn Error>> {
     con.register_table_function::<HelloVTab>(EXTENSION_NAME)
         .expect("Failed to register hello table function");
+
+    // TODO: handle error
+    let _ = CONN.set(Mutex::new(con));
+
     Ok(())
 }
