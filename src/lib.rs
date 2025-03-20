@@ -85,7 +85,7 @@ impl VTab for HelloVTab {
         } else {
             let vector = output.flat_vector(0);
             let url = "http://127.0.0.1:3030"; // TODO
-            let result = CString::new(format!("URL {}", url))?;
+            let result = CString::new(format!("URL => {}", url))?;
             vector.insert(0, result);
             output.set_len(1);
         }
