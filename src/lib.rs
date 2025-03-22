@@ -66,10 +66,8 @@ impl VTab for HelloVTab {
         let get = warp::get().map(|| {
             // let conn = Connection::open_in_memory().unwrap();
             let mut tables = vec![];
-            CONN.get()
-                .unwrap()
-                .lock()
-                .unwrap()
+            let guard = CONN.get().unwrap().lock().unwrap();
+            guard
                 .pragma_query(None, "show_tables", |row| {
                     let t: String = row.get(0)?;
                     tables.push(format!("<li>{t}</li>"));
